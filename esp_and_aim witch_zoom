@@ -1,4 +1,4 @@
-pcall(function()
+\pcall(function()
     -- // Сервисы
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
@@ -49,7 +49,7 @@ pcall(function()
             end
         end)
 
-        -- Удаляем надпись "сигма" еще через 4 секунды
+        -- Удаляем надпись еще через 4 секунды
         task.delay(4, function()
             if currentLabel then currentLabel:Destroy() end
         end)

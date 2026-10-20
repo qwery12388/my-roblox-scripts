@@ -1,0 +1,254 @@
+pcall(function()
+    -- // Сервисы
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+    local Camera = workspace.CurrentCamera
+    local Mouse = LocalPlayer:GetMouse()
+    local UserInputService = game:GetService("UserInputService")
+    local RunService = game:GetService("RunService")
+
+    -- // СООБЩЕНИЯ ПРИ ЗАПУСКЕ (Последовательный вывод на экран)
+    local WelcomeGui = Instance.new("ScreenGui")
+    WelcomeGui.Name = "Safe_Notification_Core"
+    WelcomeGui.ResetOnSpawn = false
+    local success, coregui = pcall(function() return game:GetService("CoreGui") end)
+    WelcomeGui.Parent = success and coregui or LocalPlayer:WaitForChild("PlayerGui")
+
+    -- Функция для создания уведомлений
+    local function createNotification(text, color)
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0, 300, 0, 50)
+        label.Position = UDim2.new(0.5, -150, 0.85, 0)
+        label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        label.BackgroundTransparency = 0.3
+        label.TextColor3 = color or Color3.fromRGB(255, 0, 0)
+        label.TextSize = 24
+        label.Font = Enum.Font.SourceSansBold
+        label.Text = text
+        label.BorderSizePixel = 0
+        label.Parent = WelcomeGui
+        return label
+    end
+
+    -- Показываем первое сообщение "aim-right-click"
+    local currentLabel = createNotification("aim-right-click", Color3.fromRGB(255, 0, 0))
+
+    -- Логика смены сообщений и копирования текста "всем привет"
+    task.delay(4, function()
+        if currentLabel then currentLabel:Destroy() end
+        
+        -- Показываем второе сообщение "The Telegram link has been copied; please subscribe." (белого цвета)
+        currentLabel = createNotification("The Telegram link has been copied; please subscribe.", Color3.fromRGB(255, 255, 255))
+        
+        -- Копирование в буфер обмена для ПК/Телефонов (через функции эксплоитов)
+        pcall(function()
+            if typeof(setclipboard) == "function" then
+                setclipboard("https://t.me/brbrpatapimsiki")
+            elseif typeof(toclipboard) == "function" then
+                toclipboard("https://t.me/brbrpatapimsiki")
+            end
+        end)
+
+        -- Удаляем надпись "сигма" еще через 4 секунды
+        task.delay(4, function()
+            if currentLabel then currentLabel:Destroy() end
+        end)
+    end)
+
+    -- // Конфигурация
+    local Settings = {
+        AimKey = Enum.UserInputType.MouseButton2,
+        TeamCheck = true,
+        AimBotEnabled = true,
+        ESPEnabled = true,
+        Smoothness = 0.15,
+        SnowEnabled = true,
+        SnowflakesCount = 80,
+        SnowSpeed = 120
+    }
+
+    -- // Безопасный поиск цели
+    local function GetClosestPlayer()
+        local MaximumDistance = math.huge
+        local Target = nil
+
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local root = player.Character:FindFirstChild("HumanoidRootPart")
+                local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+                
+                if root and humanoid and humanoid.Health > 0 then
+                    if Settings.TeamCheck and player.Team and player.Team == LocalPlayer.Team then 
+                        continue 
+                    end
+                    
+                    local ScreenPoint, OnScreen = Camera:WorldToScreenPoint(root.Position)
+                    if OnScreen then
+                        local VectorDistance = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(ScreenPoint.X, ScreenPoint.Y)).Magnitude
+                        if VectorDistance < MaximumDistance then
+                            MaximumDistance = VectorDistance
+                            Target = player
+                        end
+                    end
+                end
+            end
+        end
+        return Target
+    end
+
+    -- // Логика Плавного AimBot (Smooth Aim)
+    local Holding = false
+
+    UserInputService.InputBegan:Connect(function(input)
+        if input.UserInputType == Settings.AimKey then
+            Holding = true
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Settings.AimKey then
+            Holding = false
+        end
+    end)
+
+    RunService.RenderStepped:Connect(function()
+        if Settings.AimBotEnabled and Holding then
+            local Target = GetClosestPlayer()
+            if Target and Target.Character then
+                local head = Target.Character:FindFirstChild("Head")
+                if head then
+                    local TargetCFrame = CFrame.new(Camera.CFrame.Position, head.Position)
+                    Camera.CFrame = Camera.CFrame:Lerp(TargetCFrame, Settings.Smoothness)
+                end
+            end
+        end
+    end)
+
+    -- // НАСТРОЙКА ПЛАВНОГО ZOOM (При ПКМ + Колесико мыши)
+    local TargetFOV = Camera.FieldOfView
+    local MinFOV = 10 
+    local MaxFOV = Camera.FieldOfView
+    local ZoomSpeed = 5 
+
+    UserInputService.InputChanged:Connect(function(input, gameProcessed)
+        if Holding and input.UserInputType == Enum.UserInputType.MouseWheel then
+            if input.Position.Z > 0 then
+                TargetFOV = math.max(MinFOV, TargetFOV - ZoomSpeed)
+            else
+                TargetFOV = math.min(MaxFOV, TargetFOV + ZoomSpeed)
+            end
+        end
+    end)
+
+    RunService.RenderStepped:Connect(function()
+        if not Holding then
+            TargetFOV = MaxFOV
+        end
+        if math.abs(Camera.FieldOfView - TargetFOV) > 0.1 then
+            Camera.FieldOfView = Camera.FieldOfView + (TargetFOV - Camera.FieldOfView) * 0.2
+        else
+            Camera.FieldOfView = TargetFOV
+        end
+    end)
+
+    -- // Безопасный ESP во внешней папке
+    local EspFolder = workspace:FindFirstChild("Safe_ESP_Storage") or Instance.new("Folder", workspace)
+    EspFolder.Name = "Safe_ESP_Storage"
+
+    local function CreateESP(player)
+        if player == LocalPlayer then return end
+
+        local function ApplyESP(character)
+            if not Settings.ESPEnabled then return end
+            
+            character:WaitForChild("HumanoidRootPart", 5)
+            task.wait(0.5)
+            
+            if Settings.TeamCheck and player.Team and player.Team == LocalPlayer.Team then
+                local oldHighlight = EspFolder:FindFirstChild(player.Name)
+                if oldHighlight then oldHighlight:Destroy() end
+                return
+            end
+
+            local TeamColor = Color3.fromRGB(255, 255, 255)
+            if player.Team then
+                TeamColor = player.TeamColor.Color
+            end
+
+            local Highlight = EspFolder:FindFirstChild(player.Name) or Instance.new("Highlight")
+            Highlight.Name = player.Name
+            Highlight.Adornee = character
+            Highlight.FillColor = TeamColor
+            Highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+            Highlight.FillTransparency = 0.4
+            Highlight.OutlineTransparency = 0.1
+            Highlight.Parent = EspFolder
+        end
+
+        if player.Character then ApplyESP(player.Character) end
+        player.CharacterAdded:Connect(ApplyESP)
+        
+        player:GetPropertyChangedSignal("Team"):Connect(function()
+            if player.Character then ApplyESP(player.Character) end
+        end)
+        
+        player.AncestryChanged:Connect(function()
+            if not player:IsDescendantOf(Players) then
+                local targetHighlight = EspFolder:FindFirstChild(player.Name)
+                if targetHighlight then targetHighlight:Destroy() end
+            end
+        end)
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do CreateESP(player) end
+    Players.PlayerAdded:Connect(CreateESP)
+
+    -- // КАСТОМИЗАЦИЯ: Эффект падающего снега (Оверлей на экране)
+    if Settings.SnowEnabled then
+        local Snowflakes = {}
+        local ViewportSize = Camera.ViewportSize
+
+        -- Генерация снежинок
+        for i = 1, Settings.SnowflakesCount do
+            local flake = Instance.new("Frame")
+            flake.Size = UDim2.new(0, math.random(2, 5), 0, math.random(2, 5))
+            flake.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            flake.BorderSizePixel = 0
+            flake.BackgroundTransparency = math.random(2, 5) / 10
+            flake.Position = UDim2.new(math.random(), 0, math.random(), 0)
+            flake.Parent = WelcomeGui 
+
+            table.insert(Snowflakes, {
+                Frame = flake,
+                XSpeed = (math.random() - 0.5) * 40,
+                YSpeed = Settings.SnowSpeed + math.random(-20, 20),
+                WobbleSpeed = math.random(1, 4),
+                TimeOffset = math.random() * 10
+            })
+        end
+
+        Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+            ViewportSize = Camera.ViewportSize
+        end)
+
+        RunService.RenderStepped:Connect(function(deltaTime)
+            local currentTime = os.clock()
+            for _, flakeData in ipairs(Snowflakes) do
+                if flakeData.Frame then
+                    local frame = flakeData.Frame
+                    local currentPos = frame.Position
+                    
+                    local newX = currentPos.X.Scale + (flakeData.XSpeed * deltaTime) / ViewportSize.X
+                    local newY = currentPos.Y.Scale + (flakeData.YSpeed * deltaTime) / ViewportSize.Y
+                    
+                    if newY > 1 then
+                        newY = -0.05
+                        newX = math.random()
+                    end
+                    
+                    frame.Position = UDim2.new(newX, 0, newY, 0)
+                end
+            end
+        end)
+    end
+end)
